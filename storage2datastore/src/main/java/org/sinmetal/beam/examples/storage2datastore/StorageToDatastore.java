@@ -1,4 +1,4 @@
-package org.sinmetal.beam.examples;
+package org.sinmetal.beam.examples.storage2datastore;
 
 import com.google.datastore.v1.Entity;
 import com.google.datastore.v1.Key;
@@ -26,25 +26,6 @@ public class StorageToDatastore {
         @Default.String("ga://hoge/data.csv")
         String getInputFile();
         void setInputFile(String value);
-    }
-
-    static class CSVToEntityFn extends DoFn<String, Entity> {
-
-        @ProcessElement
-        public void processElement(ProcessContext c) {
-            String[] columns = c.element().split(",");
-
-            Key.Builder keyBuilder = Key.newBuilder();
-            Key.PathElement pathElement = keyBuilder.addPathBuilder().setKind("Item").setId(Long.parseLong(columns[0])).build();
-            Key key = keyBuilder.setPath(0, pathElement).build();
-
-            Entity.Builder entityBuilder = Entity.newBuilder();
-            entityBuilder.setKey(key);
-            entityBuilder.putProperties("Name", Value.newBuilder().setStringValue(columns[1]).build());
-            entityBuilder.putProperties("CategoryId", Value.newBuilder().setIntegerValue(Integer.parseInt(columns[2])).build());
-            entityBuilder.putProperties("Price", Value.newBuilder().setIntegerValue(Integer.parseInt(columns[3])).build());
-            c.output(entityBuilder.build());
-        }
     }
 
     public static class CSVToDatastore extends PTransform<PCollection<String>, PCollection<Entity>> {
