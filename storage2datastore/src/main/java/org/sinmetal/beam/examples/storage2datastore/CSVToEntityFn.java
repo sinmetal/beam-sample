@@ -16,7 +16,7 @@ public class CSVToEntityFn extends DoFn<String, Entity> {
         String[] columns = c.element().split(",");
 
         Key.Builder keyBuilder = Key.newBuilder();
-        Key.PathElement pathElement = keyBuilder.addPathBuilder().setKind("Item").setId(Long.parseLong(columns[0])).build();
+        Key.PathElement pathElement = keyBuilder.addPathBuilder().setKind("ItemForCategoryJoin").setId(Long.parseLong(columns[0])).build();
         Key key = keyBuilder.setPath(0, pathElement).build();
 
         Entity.Builder entityBuilder = Entity.newBuilder();
