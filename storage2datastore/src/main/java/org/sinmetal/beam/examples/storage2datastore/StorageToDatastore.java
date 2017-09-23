@@ -1,5 +1,6 @@
 package org.sinmetal.beam.examples.storage2datastore;
 
+import com.google.cloud.language.v1.Token;
 import com.google.datastore.v1.Entity;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.gcp.options.GcpOptions;
@@ -15,6 +16,7 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionView;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -35,17 +37,17 @@ public class StorageToDatastore {
         void setCategoryMasterInputFile(String value);
     }
 
-    public static class JoinCategoryMaster extends PTransform<PCollection<Entity>, PCollection<Entity>> {
-
-        private final PCollectionView<Map<Integer, String>> categoryMasterView;
-
-        public JoinCategoryMaster(PCollectionView<Map<Integer, String>> categoryMasterView) {
-            this.categoryMasterView = categoryMasterView;
-        }
-
+    public static class NaturalLanguageApi extends PTransform<PCollection<String>, PCollection<List<Token>>> {
         @Override
-        public PCollection<Entity> expand(PCollection<Entity> lines) {
-            return lines.apply(ParDo.of(new JoinCategoryMasterFn(this.categoryMasterView)).withSideInputs(this.categoryMasterView));
+        public PCollection<List<Token>> expand(PCollection<String> lines) {
+            return lines.apply(ParDo.of(new NaturalLanguageApiFn()));
+        }
+    }
+
+    public static class TokensToEntity extends PTransform<PCollection<List<Token>>, PCollection<String>> {
+        @Override
+        public PCollection<String> expand(PCollection<List<Token>> lines) {
+            return lines.apply(ParDo.of(new NLTokenToEntity()));
         }
     }
 
@@ -56,25 +58,15 @@ public class StorageToDatastore {
         }
     }
 
-    public static class CSVToCategoryMasterMap extends PTransform<PCollection<String>, PCollection<KV<Integer, String>>> {
-        @Override
-        public PCollection<KV<Integer, String>> expand(PCollection<String> lines) {
-            return lines.apply(ParDo.of(new CSVToCategoryKVFn()));
-        }
-    }
-
     public static void main(String[] args) {
         CSVToDatastoreOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
                 .as(CSVToDatastoreOptions.class);
         Pipeline p = Pipeline.create(options);
 
-        PCollection<String> category = p.apply("Read Category Master", TextIO.read().from(options.getCategoryMasterInputFile()));
-        PCollectionView<Map<Integer, String>> categoryMapView = category.apply("CSV To Category Master Map", new CSVToCategoryMasterMap()).apply(View.asMap());
-
         p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
-                .apply("CSV Transfer To Datastore", new CSVToDatastore())
-                .apply("Join Category Master", new JoinCategoryMaster(categoryMapView))
-                .apply(DatastoreIO.v1().write().withProjectId(options.getProject()));
+                .apply("Call Natural Language Api", new NaturalLanguageApi())
+                .apply("NL Tokens Transfer To Datastore Entity", new TokensToEntity())
+                .apply(TextIO.write().to("gs://input-sinmetal-dataflow/nl-results.json"));
 
         p.run();
     }

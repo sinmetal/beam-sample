@@ -22,7 +22,7 @@ public class CSVToEntityFnTest {
 
         List<Entity> entities = extractCSVToEntityFn.processBundle("1,GCPUG標準Tシャツ,1,1500");
         Assert.assertThat(entities.size(), CoreMatchers.is(1));
-        Assert.assertThat(entities.get(0).getKey().getPath(0).getKind(), CoreMatchers.is("Item"));
+        Assert.assertThat(entities.get(0).getKey().getPath(0).getKind(), CoreMatchers.is("ItemForCategoryJoin"));
         Assert.assertThat(entities.get(0).getKey().getPath(0).getId(), CoreMatchers.is(1L));
         Assert.assertThat(entities.get(0).getPropertiesMap().get("Name").getStringValue(), CoreMatchers.is("GCPUG標準Tシャツ"));
         Assert.assertThat(entities.get(0).getPropertiesMap().get("CategoryId").getIntegerValue(), CoreMatchers.is(1L));
