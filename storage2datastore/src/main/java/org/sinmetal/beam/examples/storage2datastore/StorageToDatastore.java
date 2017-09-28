@@ -8,12 +8,11 @@ import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionView;
+import org.apache.beam.sdk.values.*;
 
 import java.util.Map;
 
@@ -64,6 +63,10 @@ public class StorageToDatastore {
     }
 
     public static void main(String[] args) {
+        final TupleTag<String> validRecordTag = new TupleTag<String>() {private static final long serialVersionUID = 1L;};
+
+        final TupleTag<String> invalidRecordTag = new TupleTag<String>() {private static final long serialVersionUID = 1L;};
+
         CSVToDatastoreOptions options = PipelineOptionsFactory.fromArgs(args).withValidation()
                 .as(CSVToDatastoreOptions.class);
         Pipeline p = Pipeline.create(options);
@@ -71,10 +74,14 @@ public class StorageToDatastore {
         PCollection<String> category = p.apply("Read Category Master", TextIO.read().from(options.getCategoryMasterInputFile()));
         PCollectionView<Map<Integer, String>> categoryMapView = category.apply("CSV To Category Master Map", new CSVToCategoryMasterMap()).apply(View.asMap());
 
-        p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
+        PCollectionTuple validOrInvalidRecords = p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
+                .apply("Validation", new Validation(validRecordTag, invalidRecordTag));
+        validOrInvalidRecords.get(validRecordTag)
                 .apply("CSV Transfer To Datastore", new CSVToDatastore())
                 .apply("Join Category Master", new JoinCategoryMaster(categoryMapView))
                 .apply(DatastoreIO.v1().write().withProjectId(options.getProject()));
+        validOrInvalidRecords.get(invalidRecordTag)
+                .apply(TextIO.write().to("gs://input-sinmetal-dataflow/invalid.txt"));
 
         p.run();
     }
