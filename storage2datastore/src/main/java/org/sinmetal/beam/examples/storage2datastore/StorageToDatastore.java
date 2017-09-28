@@ -11,13 +11,9 @@ import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.View;
-import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionView;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by sinmetal on 2017/09/01.
@@ -44,10 +40,10 @@ public class StorageToDatastore {
         }
     }
 
-    public static class TokensToEntity extends PTransform<PCollection<List<Token>>, PCollection<String>> {
+    public static class TokensToEntity extends PTransform<PCollection<List<Token>>, PCollection<Entity>> {
         @Override
-        public PCollection<String> expand(PCollection<List<Token>> lines) {
-            return lines.apply(ParDo.of(new NLTokenToEntity()));
+        public PCollection<Entity> expand(PCollection<List<Token>> lines) {
+            return lines.apply(ParDo.of(new NLTokenToEntityFn()));
         }
     }
 
@@ -66,7 +62,8 @@ public class StorageToDatastore {
         p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
                 .apply("Call Natural Language Api", new NaturalLanguageApi())
                 .apply("NL Tokens Transfer To Datastore Entity", new TokensToEntity())
-                .apply(TextIO.write().to("gs://input-sinmetal-dataflow/nl-results.json"));
+                .apply(DatastoreIO.v1().write().withProjectId(options.getProject()));
+                //.apply(TextIO.write().to("gs://input-sinmetal-dataflow/nl-results.json"));
 
         p.run();
     }

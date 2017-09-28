@@ -2,10 +2,7 @@ package org.sinmetal.beam.examples.storage2datastore;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.language.v1.Token;
-import com.google.datastore.v1.ArrayValue;
-import com.google.datastore.v1.Entity;
-import com.google.datastore.v1.Key;
-import com.google.datastore.v1.Value;
+import com.google.datastore.v1.*;
 import com.google.gson.Gson;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -19,7 +16,7 @@ import java.util.UUID;
 /**
  * Created by sinmetal on 2017/09/21.
  */
-public class NLTokenToEntity extends DoFn<List<Token>, String> {
+public class NLTokenToEntityFn extends DoFn<List<Token>, Entity> {
 
     public static class NLPojo {
         public String Text;
@@ -43,7 +40,8 @@ public class NLTokenToEntity extends DoFn<List<Token>, String> {
 
     @ProcessElement
     public void processElement(ProcessContext c) {
-        List<NLPojo> pojos = new ArrayList<>();
+        Gson gson = new Gson();
+        List<Value> values = new ArrayList<>();
 
         for (Token token : c.element()) {
             NLPojo pojo = new NLPojo();
@@ -66,12 +64,18 @@ public class NLTokenToEntity extends DoFn<List<Token>, String> {
             pojo.headTokenIndex = token.getDependencyEdge().getHeadTokenIndex();
             pojo.label = token.getDependencyEdge().getLabel().toString();
 
-            pojos.add(pojo);
+            values.add(Value.newBuilder().setStringValue(gson.toJson(pojo)).build());
         }
+        
+        Key.Builder keyBuilder = Key.newBuilder();
+        Key.PathElement pathElement = keyBuilder.addPathBuilder().setKind("NLToken").setName(UUID.randomUUID().toString()).build();
+        Key key = keyBuilder.setPath(0, pathElement).build();
 
-        Gson gson = new Gson();
-        String json = gson.toJson(pojos);
+        Entity.Builder entityBuilder = Entity.newBuilder();
+        entityBuilder.setKey(key);
+        ArrayValue arrayValue = ArrayValue.newBuilder().addAllValues(values).build();
+        entityBuilder.putProperties("nltokens", Value.newBuilder().setArrayValue(arrayValue).build());
 
-        c.output(json);
+        c.output(entityBuilder.build());
     }
 }
