@@ -31,6 +31,11 @@ public class StorageToDatastore {
         @Default.String("ga://hoge/category.csv")
         String getCategoryMasterInputFile();
         void setCategoryMasterInputFile(String value);
+
+        @Description("Output Invalid Record File Path. Example gs://hoge/invalid.txt")
+        @Default.String("ga://hoge/category.csv")
+        String getInvalidOutputFile();
+        void setInvalidOutputFile(String value);
     }
 
     public static class JoinCategoryMaster extends PTransform<PCollection<Entity>, PCollection<Entity>> {
@@ -74,13 +79,13 @@ public class StorageToDatastore {
         PCollectionView<Map<Integer, String>> categoryMapView = category.apply("CSV To Category Master Map", new CSVToCategoryMasterMap()).apply(View.asMap());
 
         PCollectionTuple validOrInvalidRecords = p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
-                .apply("ValidationTransform", new ValidationTransform(validRecordTag, invalidRecordTag));
+                .apply("Validation", new ValidationTransform(validRecordTag, invalidRecordTag));
         validOrInvalidRecords.get(validRecordTag)
                 .apply("CSV Transfer To Datastore", new CSVToDatastore())
                 .apply("Join Category Master", new JoinCategoryMaster(categoryMapView))
                 .apply(DatastoreIO.v1().write().withProjectId(options.getProject()));
         validOrInvalidRecords.get(invalidRecordTag)
-                .apply(TextIO.write().to("gs://input-sinmetal-dataflow/invalid.txt"));
+                .apply("Output Invalid Record", TextIO.write().to(options.getInvalidOutputFile()));
 
         p.run();
     }
