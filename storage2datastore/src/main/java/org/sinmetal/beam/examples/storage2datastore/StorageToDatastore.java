@@ -8,7 +8,6 @@ import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.View;
@@ -75,7 +74,7 @@ public class StorageToDatastore {
         PCollectionView<Map<Integer, String>> categoryMapView = category.apply("CSV To Category Master Map", new CSVToCategoryMasterMap()).apply(View.asMap());
 
         PCollectionTuple validOrInvalidRecords = p.apply("Read Item Master", TextIO.read().from(options.getInputFile()))
-                .apply("Validation", new Validation(validRecordTag, invalidRecordTag));
+                .apply("ValidationTransform", new ValidationTransform(validRecordTag, invalidRecordTag));
         validOrInvalidRecords.get(validRecordTag)
                 .apply("CSV Transfer To Datastore", new CSVToDatastore())
                 .apply("Join Category Master", new JoinCategoryMaster(categoryMapView))
