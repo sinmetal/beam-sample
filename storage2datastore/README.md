@@ -8,5 +8,6 @@ Cloud Storageにあるファイルを読み込み、加工を行い、Cloud Data
 mvn compile exec:java -Dexec.mainClass=org.sinmetal.beam.examples.storage2datastore.StorageToDatastore -Dexec.args="--runner=DataflowRunner --project=sinmetal-dataflow \
      --tempLocation=gs://input-sinmetal-dataflow/tmp \
      --inputFile=gs://input-sinmetal-dataflow/data.csv \
-     --categoryMasterInputFile=gs://input-sinmetal-dataflow/category.csv" -Pdataflow-runner
+     --categoryMasterInputFile=gs://input-sinmetal-dataflow/category.csv \
+     --invalidOutputFile=gs://input-sinmetal-dataflow/invalid.txt" -Pdataflow-runner
 ```
