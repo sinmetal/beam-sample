@@ -8,9 +8,7 @@ import org.apache.beam.sdk.io.gcp.datastore.DatastoreIO;
 import org.apache.beam.sdk.options.Default;
 import org.apache.beam.sdk.options.Description;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.transforms.View;
+import org.apache.beam.sdk.transforms.*;
 import org.apache.beam.sdk.values.*;
 
 import java.util.Map;
@@ -59,6 +57,20 @@ public class StorageToDatastore {
         }
     }
 
+    public static class ConvertKV extends PTransform<PCollection<Entity>, PCollection<KV<Long, Entity>>> {
+        @Override
+        public PCollection<KV<Long, Entity>> expand(PCollection<Entity> lines) {
+            return lines.apply(ParDo.of(new EntityToKVFn()));
+        }
+    }
+
+    public static class CountKVToEntity extends PTransform<PCollection<KV<Long, Long>>, PCollection<Entity>> {
+        @Override
+        public PCollection<Entity> expand(PCollection<KV<Long, Long>> lines) {
+            return lines.apply(ParDo.of(new CountKVToEntityFn()));
+        }
+    }
+
     public static class CSVToCategoryMasterMap extends PTransform<PCollection<String>, PCollection<KV<Integer, String>>> {
         @Override
         public PCollection<KV<Integer, String>> expand(PCollection<String> lines) {
@@ -83,6 +95,9 @@ public class StorageToDatastore {
         validOrInvalidRecords.get(validRecordTag)
                 .apply("CSV Transfer To Datastore", new CSVToDatastore())
                 .apply("Join Category Master", new JoinCategoryMaster(categoryMapView))
+                .apply("Convert KV", new ConvertKV())
+                .apply(Count.perKey())
+                .apply(new CountKVToEntity())
                 .apply(DatastoreIO.v1().write().withProjectId(options.getProject()));
         validOrInvalidRecords.get(invalidRecordTag)
                 .apply("Output Invalid Record", TextIO.write().to(options.getInvalidOutputFile()));
